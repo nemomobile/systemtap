@@ -166,6 +166,7 @@ BuildRequires: libxml2-devel
 # Install requirements
 Requires: systemtap-client = %{version}-%{release}
 Requires: systemtap-devel = %{version}-%{release}
+Source100: systemtap-rpmlintrc
 
 %description
 SystemTap is an instrumentation system for systems running Linux.
