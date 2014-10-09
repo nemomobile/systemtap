@@ -26,7 +26,6 @@
 %else
 %{!?with_dyninst: %global with_dyninst 0}
 %endif
-%{!?with_systemd: %global with_systemd 0%{?fedora} >= 19 || 0%{?rhel} >= 7}
 %{!?with_emacsvim: %global with_emacsvim 0%{?fedora} >= 19 || 0%{?rhel} >= 7}
 %{!?with_java: %global with_java 0%{?fedora} >= 19 || 0%{?rhel} >= 7}
 %{!?with_virthost: %global with_virthost 0%{?fedora} >= 19 || 0%{?rhel} >= 7}
@@ -188,10 +187,6 @@ Requires: systemtap-devel = %{version}-%{release}
 Requires: nss /bin/mktemp
 Requires: zip unzip
 Requires(pre): shadow-utils
-Requires(post): chkconfig
-Requires(preun): chkconfig
-Requires(preun): initscripts
-Requires(postun): initscripts
 BuildRequires: pkgconfig(nss)
 %if %{with_openssl}
 Requires: openssl
@@ -264,11 +259,6 @@ Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap = %{version}-%{release}
-Requires(post): chkconfig
-Requires(preun): chkconfig
-Requires(preun): initscripts
-Requires(postun): initscripts
-
 %description initscript
 This package includes a SysVinit script to launch selected systemtap
 scripts at system startup, along with a dracut module for early
@@ -370,15 +360,9 @@ Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
-%if %{with_systemd}
 Requires(post): findutils coreutils
 Requires(preun): grep coreutils
 Requires(postun): grep coreutils
-%else
-Requires(post): chkconfig initscripts
-Requires(preun): chkconfig initscripts
-Requires(postun): initscripts
-%endif
 
 %description runtime-virtguest
 This package installs the services necessary on a virtual machine for a
@@ -534,18 +518,11 @@ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/conf.d
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/script.d
 install -m 644 initscript/config.systemtap $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/config
-%if %{with_systemd}
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 touch $RPM_BUILD_ROOT%{_unitdir}/stap-server.service
 install -m 644 stap-server.service $RPM_BUILD_ROOT%{_unitdir}/stap-server.service
 mkdir -p $RPM_BUILD_ROOT%{_tmpfilesdir}
 install -m 644 stap-server.conf $RPM_BUILD_ROOT%{_tmpfilesdir}/stap-server.conf
-%else
-install -m 755 initscript/stap-server $RPM_BUILD_ROOT%{initdir}
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/stap-server/conf.d
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
-install -m 644 initscript/config.stap-server $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/stap-server
-%endif
 
 %if %{with_emacsvim}
 mkdir -p $RPM_BUILD_ROOT%{_emacs_sitelispdir}
@@ -561,20 +538,9 @@ done
 
 %if %{with_virtguest}
    mkdir -p $RPM_BUILD_ROOT%{udevrulesdir}
-   %if %{with_systemd}
-      install -p -m 644 staprun/guest/99-stapsh.rules $RPM_BUILD_ROOT%{udevrulesdir}
-      mkdir -p $RPM_BUILD_ROOT%{_unitdir}
-      install -p -m 644 staprun/guest/stapsh@.service $RPM_BUILD_ROOT%{_unitdir}
-   %else
-      install -p -m 644 staprun/guest/99-stapsh-init.rules $RPM_BUILD_ROOT%{udevrulesdir}
-      install -p -m 755 staprun/guest/stapshd $RPM_BUILD_ROOT%{initdir}
-      mkdir -p $RPM_BUILD_ROOT%{_libexecdir}/systemtap
-      install -p -m 755 staprun/guest/stapsh-daemon $RPM_BUILD_ROOT%{_libexecdir}/systemtap
-      mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/modules
-      # Technically, this is only needed for RHEL5, in which the MODULE_ALIAS is missing, but
-      # it does no harm in RHEL6 as well
-      install -p -m 755 staprun/guest/virtio_console.modules $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/modules
-   %endif
+   install -p -m 644 staprun/guest/99-stapsh.rules $RPM_BUILD_ROOT%{udevrulesdir}
+   mkdir -p $RPM_BUILD_ROOT%{_unitdir}
+   install -p -m 644 staprun/guest/stapsh@.service $RPM_BUILD_ROOT%{_unitdir}
 %endif
 
 %if %{with_dracut}
@@ -632,13 +598,9 @@ if test ! -e ~stap-server/.systemtap/ssl/server/stap.cert; then
    runuser -s /bin/sh - stap-server -c %{_libexecdir}/systemtap/stap-gen-cert >/dev/null
 fi
 # Prepare the service
-%if %{with_systemd}
      # Note, Fedora policy doesn't allow network services enabled by default
      # /bin/systemctl enable stap-server.service >/dev/null 2>&1 || :
      /bin/systemd-tmpfiles --create %{_tmpfilesdir}/stap-server.conf >/dev/null 2>&1 || :
-%else
-    /sbin/chkconfig --add stap-server
-%endif
 exit 0
 
 %triggerin client -- systemtap-server
@@ -654,13 +616,8 @@ exit 0
 # Check that this is the actual deinstallation of the package, as opposed to
 # just removing the old package on upgrade.
 if [ $1 = 0 ] ; then
-    %if %{with_systemd}
        /bin/systemctl --no-reload disable stap-server.service >/dev/null 2>&1 || :
        /bin/systemctl stop stap-server.service >/dev/null 2>&1 || :
-    %else
-        /sbin/service stap-server stop >/dev/null 2>&1
-        /sbin/chkconfig --del stap-server
-    %endif
 fi
 exit 0
 
@@ -668,33 +625,20 @@ exit 0
 # Check whether this is an upgrade of the package.
 # If so, restart the service if it's running
 if [ "$1" -ge "1" ] ; then
-    %if %{with_systemd}
         /bin/systemctl condrestart stap-server.service >/dev/null 2>&1 || :
-    %else
-        /sbin/service stap-server condrestart >/dev/null 2>&1 || :
-    %endif
 fi
 exit 0
 
 %post initscript
-%if %{with_systemd}
     /bin/systemctl enable systemtap.service >/dev/null 2>&1 || :
-%else
-    /sbin/chkconfig --add systemtap
-%endif
 exit 0
 
 %preun initscript
 # Check that this is the actual deinstallation of the package, as opposed to
 # just removing the old package on upgrade.
 if [ $1 = 0 ] ; then
-    %if %{with_systemd}
         /bin/systemctl --no-reload disable systemtap.service >/dev/null 2>&1 || :
         /bin/systemctl stop systemtap.service >/dev/null 2>&1 || :
-    %else
-        /sbin/service systemtap stop >/dev/null 2>&1
-        /sbin/chkconfig --del systemtap
-    %endif
 fi
 exit 0
 
@@ -702,59 +646,40 @@ exit 0
 # Check whether this is an upgrade of the package.
 # If so, restart the service if it's running
 if [ "$1" -ge "1" ] ; then
-    %if %{with_systemd}
         /bin/systemctl condrestart systemtap.service >/dev/null 2>&1 || :
-    %else
-        /sbin/service systemtap condrestart >/dev/null 2>&1 || :
-    %endif
 fi
 exit 0
 
 %post runtime-virtguest
-%if %{with_systemd}
    # Start services if there are ports present
    if [ -d /dev/virtio-ports ]; then
       (find /dev/virtio-ports -iname 'org.systemtap.stapsh.[0-9]*' -type l \
          | xargs -n 1 basename \
          | xargs -n 1 -I {} /bin/systemctl start stapsh@{}.service) >/dev/null 2>&1 || :
    fi
-%else
-   /sbin/chkconfig --add stapshd
-   /sbin/chkconfig stapshd on
-   /sbin/service stapshd start >/dev/null 2>&1 || :
-%endif
 exit 0
 
 %preun runtime-virtguest
 # Stop service if this is an uninstall rather than an upgrade
 if [ $1 = 0 ]; then
-   %if %{with_systemd}
       # We need to stop all stapsh services. Because they are instantiated from
       # a template service file, we can't simply call disable. We need to find
       # all the running ones and stop them all individually
       for service in `/bin/systemctl --full | grep stapsh@ | cut -d ' ' -f 1`; do
          /bin/systemctl stop $service >/dev/null 2>&1 || :
       done
-   %else
-      /sbin/service stapshd stop >/dev/null 2>&1
-      /sbin/chkconfig --del stapshd
-   %endif
 fi
 exit 0
 
 %postun runtime-virtguest
 # Restart service if this is an upgrade rather than an uninstall
 if [ "$1" -ge "1" ]; then
-   %if %{with_systemd}
       # We need to restart all stapsh services. Because they are instantiated from
       # a template service file, we can't simply call restart. We need to find
       # all the running ones and restart them all individually
       for service in `/bin/systemctl --full | grep stapsh@ | cut -d ' ' -f 1`; do
          /bin/systemctl condrestart $service >/dev/null 2>&1 || :
       done
-   %else
-      /sbin/service stapshd condrestart >/dev/null 2>&1
-   %endif
 fi
 exit 0
 
@@ -852,14 +777,8 @@ done
 %{_mandir}/man7/stappaths.7*
 %{_mandir}/man7/warning*
 %{_mandir}/man8/stap-server.8*
-%if %{with_systemd}
 %{_unitdir}/stap-server.service
 %{_tmpfilesdir}/stap-server.conf
-%else
-%{initdir}/stap-server
-%dir %{_sysconfdir}/stap-server/conf.d
-%config(noreplace) %{_sysconfdir}/sysconfig/stap-server
-%endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/stap-server
 %dir %{_sysconfdir}/stap-server
 %dir %attr(0750,stap-server,stap-server) %{_localstatedir}/lib/stap-server
@@ -1010,16 +929,8 @@ done
 
 %if %{with_virtguest}
 %files runtime-virtguest
-%if %{with_systemd}
    %{udevrulesdir}/99-stapsh.rules
    %{_unitdir}/stapsh@.service
-%else
-   %{udevrulesdir}/99-stapsh-init.rules
-   %dir %{_libexecdir}/systemtap
-   %{_libexecdir}/systemtap/stapsh-daemon
-   %{initdir}/stapshd
-   %{_sysconfdir}/sysconfig/modules/virtio_console.modules
-%endif
 %endif
 
 # ------------------------------------------------------------------------
