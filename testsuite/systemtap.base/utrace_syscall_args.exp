@@ -1,0 +1,32 @@
+# Utrace system call argument tests.
+
+set flags ""
+set srcpath "$srcdir/$subdir/utrace_syscall_args.c"
+set exepath "[pwd]/utrace_syscall_args"
+set stppath "$srcdir/$subdir/utrace_syscall_args.stp"
+
+set output_string "mmap\\(\[0-9\]+\\)\\(0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+\\) = 0x\[0-9a-f]+\r\nmunmap\\(\[0-9\]+\\)\\(0x\[0-9a-f]+, 0x\[0-9a-f]+\\) = 0x\[0-9a-f]+\r\nclose\\(\[0-9\]+\\)\\(0x\[0-9a-f]+\\) = 0x\[0-9a-f]+\r\ndup\\(\[0-9\]+\\)\\(0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+\\) = 0x\[0-9a-f]+\r\nbad_syscall\\(-?\[0-9\]+\\)\\(0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+, 0x\[0-9a-f]+\\) = 0x\[0-9a-f]+\r\nsystemtap test success\r\n"
+
+for {set i 0} {$i < [arch_compile_flags]} {incr i} {
+    set flags [arch_compile_flag $i]
+    set bits [arch_compile_flag_bits $i]
+
+    set testname "${bits}_BIT_UTRACE_SYSCALL_ARGS"
+    if {![installtest_p]} { untested $testname; continue }
+    if {![utrace_p]} { untested $testname; continue }
+    send_log "Testing ${testname}\n"
+
+    # Compile our test program.
+    set res [target_compile $srcpath $exepath executable $flags]
+    if { $res != "" } {
+	verbose "target_compile for $exepath failed: $res" 2
+	send_log "$testname: unable to compile $srcpath\n"
+	untested $testname       
+	return
+    }
+
+    # Run the test.
+    stap_run $testname no_load $output_string -g $stppath -c $exepath
+
+    catch {exec rm -f $exepath foobar}
+}
