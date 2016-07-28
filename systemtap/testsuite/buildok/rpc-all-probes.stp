@@ -1,5 +1,0 @@
-#! stap -wp4
-
-// Tests if all probes in rpc.stp are resolvable.
-
-probe sunrpc.*, sunrpc.*.*, sunrpc.*.*.* {} 

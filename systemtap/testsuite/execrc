@@ -1,5 +1,0 @@
-#! /bin/sh
-
-# Run given program, but return a successful rc anyway.
-eval $@
-exit 0

@@ -1,5 +1,0 @@
-#! stap -wp4
-
-// Tests if all probes in networking.stp are resolvable.
-
-probe netdev.* { }

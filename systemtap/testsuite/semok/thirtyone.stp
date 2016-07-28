@@ -1,5 +1,0 @@
-#! stap -p2
-
-# PR5049
-
-probe kernel.function("*@module.c") {}

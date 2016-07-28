@@ -1,6 +1,0 @@
-// Testcase for PR14107 missing kernel asm CFI.
-probe kernel.function("force_sig_info") {
-  if (pid() == target()) {
-       print_ubacktrace()
-  }
-}

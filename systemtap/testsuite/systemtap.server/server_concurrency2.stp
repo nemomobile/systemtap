@@ -1,5 +1,0 @@
-
-probe module("[stu]*").function("*") {
-  printf("hello");
-  exit();
-}

@@ -1,7 +1,0 @@
-#! stap -p2
-
-probe begin
-{
-    // Test that unused autocasts are optimized out
-    foo->has->no->type
-}
