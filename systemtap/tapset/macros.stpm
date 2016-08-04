@@ -1,5 +1,0 @@
-// Return MAXSTRINGLEN
-@define MAXSTRINGLEN
-%(
-	%{ /* pure */ /* unprivileged */ MAXSTRINGLEN %}
-%)

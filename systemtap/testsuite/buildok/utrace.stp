@@ -1,3 +1,0 @@
-#! stap -wp4
-
-probe process.begin { }
