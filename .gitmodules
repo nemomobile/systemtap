@@ -1,3 +1,0 @@
-[submodule "systemtap"]
-	path = systemtap
-	url = git://sourceware.org/git/systemtap.git
