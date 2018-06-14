@@ -2,7 +2,7 @@
 %define udevrulesdir /lib/udev/rules.d
 
 Name: systemtap
-Version: 3.0
+Version: 3.3
 Release: 1%{?dist}
 # for version, see also configure.ac
 
@@ -228,7 +228,7 @@ done
 # We build it in place and then move it away so it doesn't get installed
 # twice. rpm can specify itself where the (versioned) docs go with the
 # %doc directive.
-mv $RPM_BUILD_ROOT%{_datadir}/doc/systemtap/examples examples
+mv $RPM_BUILD_ROOT/usr/share/systemtap/examples examples
 
 # Fix permissions.
 chmod -x examples/interrupt/interrupts-by-dev.txt
